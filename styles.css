@@ -195,6 +195,26 @@ header h1 {
 .feedback-wrong   { color: #ef5350; }
 .feedback-hint    { color: #888;    }
 
+.ref-toggle {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid #1a3a6a;
+  background: #0a1628;
+  color: #667;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.ref-toggle.active {
+  background: rgba(226,169,91,0.15);
+  border-color: #e2a95b;
+  color: #e2a95b;
+}
+
 .namer-filters {
   display: flex;
   gap: 16px;

@@ -71,6 +71,7 @@ let typeIndex  = 0;
 // Note Namer state
 let currentChallenge = null; // { si, fret, note }
 let challengeLocked  = false;
+let showCNotes = false;
 let minFret   = 0;
 let maxFret   = FRET_COUNT;
 let minString = 0;             // index into STRINGS (0 = F, highest)
@@ -260,9 +261,31 @@ function drawChallengeNote(revealed) {
   const { si, fret, note } = currentChallenge;
   const svg = document.getElementById('fretboard');
   const g   = el('g', { id: 'notes' });
-  const cx  = noteX(fret);
-  const cy  = noteY(si);
 
+  // C reference dots (drawn first so the challenge circle sits on top)
+  if (showCNotes) {
+    for (let rsi = 0; rsi < STRINGS.length; rsi++) {
+      for (let rf = 0; rf <= FRET_COUNT; rf++) {
+        if ((OPEN_NOTES[rsi] + rf) % 12 !== 0) continue; // 0 = C
+        // Skip the challenge position — the challenge circle covers it
+        if (rsi === si && rf === fret) continue;
+        g.appendChild(el('circle', {
+          cx: noteX(rf), cy: noteY(rsi), r: 9,
+          fill: 'rgba(226,169,91,0.20)', stroke: '#e2a95b', 'stroke-width': 1.5,
+        }));
+        g.appendChild(svgText('C', {
+          x: noteX(rf), y: noteY(rsi),
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          'font-size': '8', 'font-family': 'monospace', 'font-weight': 'bold',
+          fill: '#e2a95b', 'pointer-events': 'none',
+        }));
+      }
+    }
+  }
+
+  // Challenge circle
+  const cx = noteX(fret);
+  const cy = noteY(si);
   g.appendChild(el('circle', {
     cx, cy, r: 12,
     fill:           revealed ? '#4caf50' : '#ffffff',
@@ -382,6 +405,12 @@ function setupControls() {
   });
 
   document.getElementById('check-btn').addEventListener('click', checkAnswer);
+
+  document.getElementById('btn-show-c').addEventListener('click', function () {
+    showCNotes = !showCNotes;
+    this.classList.toggle('active', showCNotes);
+    drawChallengeNote(challengeLocked);
+  });
 
   document.getElementById('note-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') checkAnswer();
