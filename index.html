@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fretboard Trainer">
+  <title>Fretboard Trainer</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Fretboard Trainer</h1>
+      <select id="mode-select">
+        <option value="visualiser">Visualiser</option>
+        <option value="note-namer">Note Namer</option>
+      </select>
+    </header>
+
+    <!-- Visualiser controls -->
+    <div id="visualiser-controls">
+      <div class="toggle-group">
+        <button id="btn-scale" class="active">Scale</button>
+        <button id="btn-arpeggio">Arpeggio</button>
+      </div>
+      <div class="select-group">
+        <div class="select-wrapper">
+          <label for="root-select">Root</label>
+          <select id="root-select"></select>
+        </div>
+        <div class="select-wrapper">
+          <label for="type-select">Type</label>
+          <select id="type-select"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Note Namer controls -->
+    <div id="note-namer-controls" hidden>
+      <div class="answer-area">
+        <input id="note-input" type="text" placeholder="e.g. C#, Bb, D"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button id="check-btn">Check</button>
+      </div>
+      <div id="feedback"></div>
+    </div>
+
+    <main>
+      <div id="fretboard-container">
+        <svg id="fretboard"></svg>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
