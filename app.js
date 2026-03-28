@@ -98,6 +98,7 @@ const PAD_TOP        = 20;
 const PAD_BOTTOM     = 40;
 const STRING_SPACING = 46;
 const FRET_SPACING   = 80;
+const FRET_OVERHANG  = 12; // fretboard extends this many px beyond the outer strings
 
 const boardWidth  = FRET_COUNT * FRET_SPACING;
 const boardHeight = (STRINGS.length - 1) * STRING_SPACING;
@@ -129,10 +130,14 @@ function drawFretboard() {
   svg.appendChild(defs);
 
   svg.appendChild(el('rect', {
-    x: PAD_LEFT, y: PAD_TOP, width: boardWidth, height: boardHeight, fill: '#7a4f2e', rx: 2,
+    x: PAD_LEFT, y: PAD_TOP - FRET_OVERHANG,
+    width: boardWidth, height: boardHeight + FRET_OVERHANG * 2,
+    fill: '#7a4f2e', rx: 2,
   }));
   svg.appendChild(el('rect', {
-    x: PAD_LEFT, y: PAD_TOP, width: boardWidth, height: boardHeight, fill: 'url(#wood)', rx: 2,
+    x: PAD_LEFT, y: PAD_TOP - FRET_OVERHANG,
+    width: boardWidth, height: boardHeight + FRET_OVERHANG * 2,
+    fill: 'url(#wood)', rx: 2,
   }));
 
   // Single-dot position markers
@@ -157,7 +162,7 @@ function drawFretboard() {
     const x     = fretX(f);
     const isNut = f === 0;
     svg.appendChild(el('line', {
-      x1: x, y1: PAD_TOP, x2: x, y2: PAD_TOP + boardHeight,
+      x1: x, y1: PAD_TOP - FRET_OVERHANG, x2: x, y2: PAD_TOP + boardHeight + FRET_OVERHANG,
       stroke: isNut ? '#d4af37' : '#c0c0c0',
       'stroke-width': isNut ? 6 : 2,
       'stroke-linecap': 'round',
@@ -165,7 +170,7 @@ function drawFretboard() {
     if (f > 0) {
       svg.appendChild(svgText(String(f), {
         x: PAD_LEFT + (FRET_COUNT - f + 0.5) * FRET_SPACING,
-        y: PAD_TOP + boardHeight + 28,
+        y: PAD_TOP + boardHeight + FRET_OVERHANG + 16,
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
         'font-size': '12', 'font-family': 'monospace', fill: '#888',
       }));
@@ -174,7 +179,7 @@ function drawFretboard() {
 
   svg.appendChild(svgText('Open', {
     x: PAD_LEFT + boardWidth + PAD_RIGHT / 2,
-    y: PAD_TOP + boardHeight + 28,
+    y: PAD_TOP + boardHeight + FRET_OVERHANG + 16,
     'text-anchor': 'middle', 'dominant-baseline': 'middle',
     'font-size': '11', 'font-family': 'monospace', fill: '#666',
   }));
