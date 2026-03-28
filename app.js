@@ -71,6 +71,10 @@ let typeIndex  = 0;
 // Note Namer state
 let currentChallenge = null; // { si, fret, note }
 let challengeLocked  = false;
+let minFret   = 0;
+let maxFret   = FRET_COUNT;
+let minString = 0;             // index into STRINGS (0 = F, highest)
+let maxString = STRINGS.length - 1;
 
 // --- SVG helpers ---
 const svgNS = 'http://www.w3.org/2000/svg';
@@ -233,9 +237,13 @@ function drawNotes() {
 
 // --- Note Namer ---
 function parseNote(raw) {
-  const s = raw.trim().toUpperCase()
+  let s = raw.trim().toUpperCase()
     .replace(/♭/g, 'B')
     .replace(/♯/g, '#');
+  // Allow 's' suffix as sharp: As → A#, Fs → F#, etc.
+  if (s.length > 1 && s.endsWith('S') && !s.endsWith('#')) {
+    s = s.slice(0, -1) + '#';
+  }
   return NOTE_PARSE_MAP[s] ?? null;
 }
 
@@ -270,8 +278,8 @@ function drawChallengeNote(revealed) {
 
 function newChallenge() {
   challengeLocked = false;
-  const si   = Math.floor(Math.random() * STRINGS.length);
-  const fret = Math.floor(Math.random() * (FRET_COUNT + 1));
+  const si   = minString + Math.floor(Math.random() * (maxString - minString + 1));
+  const fret = minFret   + Math.floor(Math.random() * (maxFret   - minFret   + 1));
   currentChallenge = { si, fret, note: (OPEN_NOTES[si] + fret) % 12 };
 
   drawFretboard();
@@ -375,6 +383,55 @@ function setupControls() {
   });
 }
 
+function setupNoteNamerFilters() {
+  const minFretSel   = document.getElementById('min-fret-select');
+  const maxFretSel   = document.getElementById('max-fret-select');
+  const minStringSel = document.getElementById('min-string-select');
+  const maxStringSel = document.getElementById('max-string-select');
+
+  // Populate fret options
+  for (let f = 0; f <= FRET_COUNT; f++) {
+    const labelOpen = f === 0 ? '0 (open)' : String(f);
+    [minFretSel, maxFretSel].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = labelOpen;
+      sel.appendChild(opt);
+    });
+  }
+  minFretSel.value = 0;
+  maxFretSel.value = FRET_COUNT;
+
+  // Populate string options (high F = string 1, low E = string 6)
+  STRINGS.forEach((name, i) => {
+    [minStringSel, maxStringSel].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${i + 1} – ${name}`;
+      sel.appendChild(opt);
+    });
+  });
+  minStringSel.value = 0;
+  maxStringSel.value = STRINGS.length - 1;
+
+  minFretSel.addEventListener('change', e => {
+    minFret = +e.target.value;
+    if (minFret > maxFret) { maxFret = minFret; maxFretSel.value = maxFret; }
+  });
+  maxFretSel.addEventListener('change', e => {
+    maxFret = +e.target.value;
+    if (maxFret < minFret) { minFret = maxFret; minFretSel.value = minFret; }
+  });
+  minStringSel.addEventListener('change', e => {
+    minString = +e.target.value;
+    if (minString > maxString) { maxString = minString; maxStringSel.value = maxString; }
+  });
+  maxStringSel.addEventListener('change', e => {
+    maxString = +e.target.value;
+    if (maxString < minString) { minString = maxString; minStringSel.value = minString; }
+  });
+}
+
 function setupModeSelector() {
   document.getElementById('mode-select').addEventListener('change', e => {
     appMode = e.target.value;
@@ -400,6 +457,7 @@ if ('serviceWorker' in navigator) {
 populateRootSelect();
 populateTypeSelect();
 setupControls();
+setupNoteNamerFilters();
 setupModeSelector();
 drawFretboard();
 drawNotes();

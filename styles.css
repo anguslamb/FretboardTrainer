@@ -191,6 +191,53 @@ header h1 {
 .feedback-wrong   { color: #ef5350; }
 .feedback-hint    { color: #888;    }
 
+.namer-filters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #667;
+  white-space: nowrap;
+}
+
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.range-sep {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.range-inputs select {
+  background: #0a1628;
+  color: #dde;
+  border: 1px solid #1a3a6a;
+  border-radius: 6px;
+  padding: 5px 22px 5px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23667' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
 /* --- Main / fretboard --- */
 main {
   flex: 1;

@@ -41,11 +41,29 @@
     <!-- Note Namer controls -->
     <div id="note-namer-controls" hidden>
       <div class="answer-area">
-        <input id="note-input" type="text" placeholder="e.g. C#, Bb, D"
+        <input id="note-input" type="text" placeholder="e.g. C#, Bb, As, D"
                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button id="check-btn">Check</button>
       </div>
       <div id="feedback"></div>
+      <div class="namer-filters">
+        <div class="filter-group">
+          <span class="filter-label">Fret</span>
+          <div class="range-inputs">
+            <select id="min-fret-select"></select>
+            <span class="range-sep">–</span>
+            <select id="max-fret-select"></select>
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">String</span>
+          <div class="range-inputs">
+            <select id="min-string-select"></select>
+            <span class="range-sep">–</span>
+            <select id="max-string-select"></select>
+          </div>
+        </div>
+      </div>
     </div>
 
     <main>
