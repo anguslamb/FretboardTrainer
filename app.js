@@ -541,43 +541,10 @@ function handleNFClick(e) {
   }
 }
 
-function handleSFClick(e) {
-  if (sfLocked || !sfSequence.length) return;
-  e.preventDefault();
-
-  const { x, y } = svgCoordsFromEvent(e);
-  const si   = stringFromY(y);
-  const fret = fretFromX(x);
-
-  const note       = (OPEN_NOTES[si] + fret) % 12;
-  const targetNote = sfSequence[sfProgress];
-  const fb         = document.getElementById('sf-feedback');
-
-  if (note === targetNote) {
-    sfMarked.push({ si, fret });
-    sfProgress++;
-    fb.textContent = '';
-    fb.className   = '';
-    if (sfProgress >= sfSequence.length) {
-      sfLocked       = true;
-      fb.textContent = '✓ Complete!';
-      fb.className   = 'feedback-correct';
-      drawSFOverlay();
-      setTimeout(newSFChallenge, 800);
-    } else {
-      drawSFOverlay();
-    }
-  } else {
-    fb.textContent = '✗ Try again';
-    fb.className   = 'feedback-wrong';
-    drawSFOverlay('wrong', si, fret);
-    setTimeout(() => { if (!sfLocked) drawSFOverlay(); }, 600);
-  }
-}
-
 function handleFretboardClick(e) {
-  if (appMode === 'note-finder')  handleNFClick(e);
-  else if (appMode === 'scale-finder') handleSFClick(e);
+  if (appMode === 'note-finder')       handleNFClick(e);
+  else if (appMode === 'scale-finder') handleSeqClick(e, sfState);
+  else if (appMode === 'arpeggio-finder') handleSeqClick(e, afState);
 }
 
 function setupNoteFinder() {
@@ -734,29 +701,26 @@ function setupNoteNamerFilters() {
   });
 }
 
-// --- Scale Finder ---
-let sfRoot      = 0;
-let sfTypeIndex = 0;
-let sfDirection = 'ascending';
-let sfProgress  = 0;        // index into sfSequence
-let sfSequence  = [];       // ordered chromatic note indices to find
-let sfMarked    = [];       // { si, fret } of correctly tapped positions
-let sfLocked    = false;
+// --- Sequence Finder (shared logic for Scale Finder & Arpeggio Finder) ---
 
-function buildSFSequence() {
-  const notes = SCALES[sfTypeIndex].intervals.map(i => (sfRoot + i) % 12);
-  return sfDirection === 'ascending' ? notes : [...notes].reverse();
+// State objects — one per mode so each keeps its own settings.
+const sfState = { root: 0, typeIndex: 0, direction: 'ascending', progress: 0, sequence: [], marked: [], locked: false, overlayId: 'sf-overlay', feedbackId: 'sf-feedback', collection: SCALES };
+const afState = { root: 0, typeIndex: 0, direction: 'ascending', progress: 0, sequence: [], marked: [], locked: false, overlayId: 'af-overlay', feedbackId: 'af-feedback', collection: ARPEGGIOS };
+
+function buildSeqSequence(st) {
+  const notes = st.collection[st.typeIndex].intervals.map(i => (st.root + i) % 12);
+  return st.direction === 'ascending' ? notes : [...notes].reverse();
 }
 
-function drawSFOverlay(state = 'idle', wrongSi, wrongFret) {
-  const old = document.getElementById('sf-overlay');
+function drawSeqOverlay(st, state = 'idle', wrongSi, wrongFret) {
+  const old = document.getElementById(st.overlayId);
   if (old) old.remove();
 
   const svg = document.getElementById('fretboard');
-  const g   = el('g', { id: 'sf-overlay' });
+  const g   = el('g', { id: st.overlayId });
 
   // Accumulated correct markers
-  sfMarked.forEach(({ si, fret }) => {
+  st.marked.forEach(({ si, fret }) => {
     const note = (OPEN_NOTES[si] + fret) % 12;
     const cx = noteX(fret), cy = noteY(si);
     g.appendChild(el('circle', { cx, cy, r: 12, fill: '#4caf50', stroke: '#2e7d32', 'stroke-width': 1.5 }));
@@ -778,27 +742,24 @@ function drawSFOverlay(state = 'idle', wrongSi, wrongFret) {
     }));
   }
 
-  // Text above the fretboard
-  const midY     = (PAD_TOP - FRET_OVERHANG) / 2; // vertical centre of the header space
-  const dirArrow = sfDirection === 'ascending' ? '↑' : '↓';
+  // Header text above fretboard
+  const midY     = (PAD_TOP - FRET_OVERHANG) / 2;
+  const dirArrow = st.direction === 'ascending' ? '↑' : '↓';
 
-  if (sfProgress < sfSequence.length) {
-    // Current target note — large and centred
-    g.appendChild(svgText(NOTE_NAMES[sfSequence[sfProgress]], {
+  if (st.progress < st.sequence.length) {
+    g.appendChild(svgText(NOTE_NAMES[st.sequence[st.progress]], {
       x: PAD_LEFT + boardWidth / 2, y: midY - 10,
       'text-anchor': 'middle', 'dominant-baseline': 'middle',
       'font-size': '42', 'font-family': "'Menlo', 'Monaco', monospace",
       'font-weight': 'bold', fill: '#e2a95b', 'pointer-events': 'none',
     }));
-    // Progress counter + direction arrow
-    g.appendChild(svgText(`${sfProgress + 1} / ${sfSequence.length}  ${dirArrow}`, {
+    g.appendChild(svgText(`${st.progress + 1} / ${st.sequence.length}  ${dirArrow}`, {
       x: PAD_LEFT + boardWidth / 2, y: midY + 20,
       'text-anchor': 'middle', 'dominant-baseline': 'middle',
       'font-size': '13', 'font-family': 'monospace',
       fill: '#667', 'pointer-events': 'none',
     }));
   } else {
-    // All notes found
     g.appendChild(svgText('Complete!', {
       x: PAD_LEFT + boardWidth / 2, y: midY,
       'text-anchor': 'middle', 'dominant-baseline': 'middle',
@@ -810,40 +771,71 @@ function drawSFOverlay(state = 'idle', wrongSi, wrongFret) {
   svg.appendChild(g);
 }
 
-function newSFChallenge() {
-  sfLocked   = false;
-  sfProgress = 0;
-  sfMarked   = [];
-  sfSequence = buildSFSequence();
-  document.getElementById('sf-feedback').textContent = '';
-  document.getElementById('sf-feedback').className   = '';
+function newSeqChallenge(st) {
+  st.locked   = false;
+  st.progress = 0;
+  st.marked   = [];
+  st.sequence = buildSeqSequence(st);
+  document.getElementById(st.feedbackId).textContent = '';
+  document.getElementById(st.feedbackId).className   = '';
   drawFretboard();
-  drawSFOverlay();
+  drawSeqOverlay(st);
 }
 
-function setupScaleFinder() {
-  const rootSel = document.getElementById('sf-root-select');
-  const typeSel = document.getElementById('sf-type-select');
+function handleSeqClick(e, st) {
+  if (st.locked || !st.sequence.length) return;
+  e.preventDefault();
+
+  const { x, y } = svgCoordsFromEvent(e);
+  const si   = stringFromY(y);
+  const fret = fretFromX(x);
+  const note = (OPEN_NOTES[si] + fret) % 12;
+  const fb   = document.getElementById(st.feedbackId);
+
+  if (note === st.sequence[st.progress]) {
+    st.marked.push({ si, fret });
+    st.progress++;
+    fb.textContent = '';
+    fb.className   = '';
+    if (st.progress >= st.sequence.length) {
+      st.locked      = true;
+      fb.textContent = '✓ Complete!';
+      fb.className   = 'feedback-correct';
+      drawSeqOverlay(st);
+      setTimeout(() => newSeqChallenge(st), 800);
+    } else {
+      drawSeqOverlay(st);
+    }
+  } else {
+    fb.textContent = '✗ Try again';
+    fb.className   = 'feedback-wrong';
+    drawSeqOverlay(st, 'wrong', si, fret);
+    setTimeout(() => { if (!st.locked) drawSeqOverlay(st); }, 600);
+  }
+}
+
+function setupSeqFinder(st, rootSelId, typeSelId, dirSelId) {
+  const rootSel = document.getElementById(rootSelId);
+  const typeSel = document.getElementById(typeSelId);
 
   NOTE_NAMES.forEach((name, i) => {
     const opt = document.createElement('option');
     opt.value = i; opt.textContent = name;
     rootSel.appendChild(opt);
   });
-
-  SCALES.forEach((s, i) => {
+  st.collection.forEach((item, i) => {
     const opt = document.createElement('option');
-    opt.value = i; opt.textContent = s.name;
+    opt.value = i; opt.textContent = item.name;
     typeSel.appendChild(opt);
   });
 
-  rootSel.addEventListener('change', e => { sfRoot      = +e.target.value; newSFChallenge(); });
-  typeSel.addEventListener('change', e => { sfTypeIndex = +e.target.value; newSFChallenge(); });
-  document.getElementById('sf-direction-select').addEventListener('change', e => {
-    sfDirection = e.target.value;
-    newSFChallenge();
-  });
+  rootSel.addEventListener('change', e => { st.root      = +e.target.value; newSeqChallenge(st); });
+  typeSel.addEventListener('change', e => { st.typeIndex = +e.target.value; newSeqChallenge(st); });
+  document.getElementById(dirSelId).addEventListener('change', e => { st.direction = e.target.value; newSeqChallenge(st); });
 }
+
+function setupScaleFinder()    { setupSeqFinder(sfState, 'sf-root-select', 'sf-type-select', 'sf-direction-select'); }
+function setupArpeggioFinder() { setupSeqFinder(afState, 'af-root-select', 'af-type-select', 'af-direction-select'); }
 
 function setupModeSelector() {
   document.getElementById('mode-select').addEventListener('change', e => {
@@ -851,15 +843,17 @@ function setupModeSelector() {
     document.getElementById('visualiser-controls').hidden  = appMode !== 'visualiser';
     document.getElementById('note-namer-controls').hidden  = appMode !== 'note-namer';
     document.getElementById('note-finder-controls').hidden  = appMode !== 'note-finder';
-    document.getElementById('scale-finder-controls').hidden = appMode !== 'scale-finder';
+    document.getElementById('scale-finder-controls').hidden    = appMode !== 'scale-finder';
+    document.getElementById('arpeggio-finder-controls').hidden = appMode !== 'arpeggio-finder';
     document.getElementById('fretboard').classList.toggle(
-      'note-finder-active', appMode === 'note-finder' || appMode === 'scale-finder'
+      'note-finder-active', appMode === 'note-finder' || appMode === 'scale-finder' || appMode === 'arpeggio-finder'
     );
 
-    if (appMode === 'visualiser')      { drawFretboard(); drawNotes(); }
-    else if (appMode === 'note-namer') { newChallenge(); }
-    else if (appMode === 'note-finder'){ newNFChallenge(); }
-    else                               { newSFChallenge(); }
+    if (appMode === 'visualiser')         { drawFretboard(); drawNotes(); }
+    else if (appMode === 'note-namer')    { newChallenge(); }
+    else if (appMode === 'note-finder')   { newNFChallenge(); }
+    else if (appMode === 'scale-finder')  { newSeqChallenge(sfState); }
+    else if (appMode === 'arpeggio-finder') { newSeqChallenge(afState); }
   });
 }
 
@@ -875,6 +869,7 @@ setupControls();
 setupNoteNamerFilters();
 setupNoteFinder();
 setupScaleFinder();
+setupArpeggioFinder();
 setupModeSelector();
 drawFretboard();
 drawNotes();

@@ -19,6 +19,7 @@
         <option value="note-namer">Note Namer</option>
         <option value="note-finder">Note Finder</option>
         <option value="scale-finder">Scale Finder</option>
+        <option value="arpeggio-finder">Arpeggio Finder</option>
       </select>
     </header>
 
@@ -90,6 +91,28 @@
         </div>
       </div>
       <div id="nf-feedback"></div>
+    </div>
+
+    <!-- Arpeggio Finder controls -->
+    <div id="arpeggio-finder-controls" hidden>
+      <div class="select-group">
+        <div class="select-wrapper">
+          <label for="af-root-select">Root</label>
+          <select id="af-root-select"></select>
+        </div>
+        <div class="select-wrapper">
+          <label for="af-type-select">Arpeggio</label>
+          <select id="af-type-select"></select>
+        </div>
+        <div class="select-wrapper">
+          <label for="af-direction-select">Direction</label>
+          <select id="af-direction-select">
+            <option value="ascending">Ascending ↑</option>
+            <option value="descending">Descending ↓</option>
+          </select>
+        </div>
+      </div>
+      <div id="af-feedback"></div>
     </div>
 
     <!-- Scale Finder controls -->
