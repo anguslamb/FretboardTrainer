@@ -370,8 +370,8 @@ let nfMaxString  = STRINGS.length - 1;
 function svgCoordsFromEvent(e) {
   const svg  = document.getElementById('fretboard');
   const rect = svg.getBoundingClientRect();
-  const cx   = e.touches ? e.touches[0].clientX : e.clientX;
-  const cy   = e.touches ? e.touches[0].clientY : e.clientY;
+  const cx   = e.clientX;
+  const cy   = e.clientY;
   return {
     x: (cx - rect.left) * (totalWidth  / rect.width),
     y: (cy - rect.top)  * (totalHeight / rect.height),
@@ -568,8 +568,7 @@ function setupNoteFinder() {
 
   // Click and touch handlers on the SVG
   const svg = document.getElementById('fretboard');
-  svg.addEventListener('click',     handleFretboardClick);
-  svg.addEventListener('touchend',  handleFretboardClick, { passive: false });
+  svg.addEventListener('click', handleFretboardClick);
 }
 
 // --- Control setup ---
