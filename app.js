@@ -526,7 +526,7 @@ function handleFretboardClick(e) {
     fb.textContent = '✓ Correct!';
     fb.className   = 'feedback-correct';
     drawNFOverlay('correct');
-    setTimeout(newNFChallenge, 1000);
+    setTimeout(newNFChallenge, 500);
   } else {
     fb.textContent = '✗ Try again';
     fb.className   = 'feedback-wrong';
