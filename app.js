@@ -456,8 +456,17 @@ function drawNFOverlay(state = 'idle', wrongSi, wrongFret) {
 }
 
 function newNFChallenge() {
-  nfLocked    = false;
-  nfChallenge = { note: Math.floor(Math.random() * 12) };
+  nfLocked = false;
+
+  // Only pick notes that actually appear within the current fret/string range
+  const available = new Set();
+  for (let si = nfMinString; si <= nfMaxString; si++) {
+    for (let f = nfMinFret; f <= nfMaxFret; f++) {
+      available.add((OPEN_NOTES[si] + f) % 12);
+    }
+  }
+  const pool = [...available];
+  nfChallenge = { note: pool[Math.floor(Math.random() * pool.length)] };
   document.getElementById('nf-note-display').textContent = NOTE_NAMES[nfChallenge.note];
   document.getElementById('nf-feedback').textContent     = '';
   document.getElementById('nf-feedback').className       = '';
