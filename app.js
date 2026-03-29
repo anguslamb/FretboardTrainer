@@ -61,7 +61,7 @@ const ARPEGGIOS = [
 ];
 
 // --- App state ---
-let appMode   = 'visualiser'; // 'visualiser' | 'note-namer'
+let appMode   = 'visualiser'; // 'visualiser' | 'note-namer' | 'note-finder'
 
 // Visualiser state
 let scaleOrArp = 'scale';
@@ -348,6 +348,193 @@ function checkAnswer() {
   }
 }
 
+// --- Note Finder ---
+let nfChallenge  = null; // { note }
+let nfLocked     = false;
+let nfMinFret    = 0;
+let nfMaxFret    = FRET_COUNT;
+let nfMinString  = 0;
+let nfMaxString  = STRINGS.length - 1;
+
+// Convert a click/touch event to SVG viewBox coordinates.
+function svgCoordsFromEvent(e) {
+  const svg  = document.getElementById('fretboard');
+  const rect = svg.getBoundingClientRect();
+  const cx   = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy   = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (cx - rect.left) * (totalWidth  / rect.width),
+    y: (cy - rect.top)  * (totalHeight / rect.height),
+  };
+}
+
+function fretFromX(x) {
+  if (x > PAD_LEFT + boardWidth) return 0; // open area (right of nut)
+  const col = (x - PAD_LEFT) / FRET_SPACING;
+  return Math.max(1, Math.min(FRET_COUNT, FRET_COUNT - Math.floor(col)));
+}
+
+function stringFromY(y) {
+  return Math.max(0, Math.min(STRINGS.length - 1, Math.round((y - PAD_TOP) / STRING_SPACING)));
+}
+
+// Draw the valid-area highlight and optional note markers into a <g id="nf-overlay">.
+// state: 'idle' | 'correct' | 'wrong'
+function drawNFOverlay(state = 'idle', wrongSi, wrongFret) {
+  const old = document.getElementById('nf-overlay');
+  if (old) old.remove();
+
+  const svg = document.getElementById('fretboard');
+  const g   = el('g', { id: 'nf-overlay' });
+
+  const boardLeft  = PAD_LEFT;
+  const boardRight = PAD_LEFT + boardWidth + PAD_RIGHT;
+  const boardTop   = PAD_TOP  - FRET_OVERHANG;
+  const boardBot   = PAD_TOP  + boardHeight + FRET_OVERHANG;
+
+  const isRestricted = nfMinFret > 0 || nfMaxFret < FRET_COUNT
+                    || nfMinString > 0 || nfMaxString < STRINGS.length - 1;
+
+  if (isRestricted) {
+    // x bounds of the valid fret playing space
+    const vx1 = nfMaxFret === FRET_COUNT ? boardLeft : fretX(nfMaxFret);
+    const vx2 = nfMinFret === 0          ? boardRight : fretX(nfMinFret - 1);
+
+    // y bounds of the valid string band
+    const vy1 = nfMinString === 0               ? boardTop : noteY(nfMinString) - STRING_SPACING / 2;
+    const vy2 = nfMaxString === STRINGS.length - 1 ? boardBot : noteY(nfMaxString) + STRING_SPACING / 2;
+
+    const dim = 'rgba(0,0,0,0.5)';
+    // Dim the four strips surrounding the valid area
+    if (vy1 > boardTop)
+      g.appendChild(el('rect', { x: boardLeft, y: boardTop, width: boardRight - boardLeft, height: vy1 - boardTop, fill: dim }));
+    if (vy2 < boardBot)
+      g.appendChild(el('rect', { x: boardLeft, y: vy2,      width: boardRight - boardLeft, height: boardBot - vy2,  fill: dim }));
+    if (vx1 > boardLeft)
+      g.appendChild(el('rect', { x: boardLeft, y: vy1, width: vx1 - boardLeft, height: vy2 - vy1, fill: dim }));
+    if (vx2 < boardRight)
+      g.appendChild(el('rect', { x: vx2, y: vy1, width: boardRight - vx2,  height: vy2 - vy1, fill: dim }));
+
+    // Border around valid area
+    g.appendChild(el('rect', {
+      x: vx1, y: vy1, width: vx2 - vx1, height: vy2 - vy1,
+      fill: 'none', stroke: 'rgba(255,255,255,0.22)', 'stroke-width': 1.5, rx: 2,
+    }));
+  }
+
+  if (state === 'correct') {
+    // Highlight every occurrence of the challenge note within the valid range
+    for (let si = nfMinString; si <= nfMaxString; si++) {
+      for (let f = nfMinFret; f <= nfMaxFret; f++) {
+        if ((OPEN_NOTES[si] + f) % 12 !== nfChallenge.note) continue;
+        g.appendChild(el('circle', {
+          cx: noteX(f), cy: noteY(si), r: 12,
+          fill: '#4caf50', stroke: '#2e7d32', 'stroke-width': 1.5,
+        }));
+        g.appendChild(svgText(NOTE_NAMES[nfChallenge.note], {
+          x: noteX(f), y: noteY(si),
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          'font-size': '9', 'font-family': 'monospace', 'font-weight': 'bold',
+          fill: '#fff', 'pointer-events': 'none',
+        }));
+      }
+    }
+  } else if (state === 'wrong') {
+    g.appendChild(el('circle', {
+      cx: noteX(wrongFret), cy: noteY(wrongSi), r: 12,
+      fill: '#ef5350', stroke: '#b71c1c', 'stroke-width': 1.5,
+    }));
+    g.appendChild(svgText('✗', {
+      x: noteX(wrongFret), y: noteY(wrongSi),
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': '12', 'font-family': 'monospace', 'font-weight': 'bold',
+      fill: '#fff', 'pointer-events': 'none',
+    }));
+  }
+
+  svg.appendChild(g);
+}
+
+function newNFChallenge() {
+  nfLocked    = false;
+  nfChallenge = { note: Math.floor(Math.random() * 12) };
+  document.getElementById('nf-note-display').textContent = NOTE_NAMES[nfChallenge.note];
+  document.getElementById('nf-feedback').textContent     = '';
+  document.getElementById('nf-feedback').className       = '';
+  drawFretboard();
+  drawNFOverlay('idle');
+}
+
+function handleFretboardClick(e) {
+  if (appMode !== 'note-finder' || nfLocked || !nfChallenge) return;
+  e.preventDefault();
+
+  const { x, y } = svgCoordsFromEvent(e);
+  const si   = stringFromY(y);
+  const fret = fretFromX(x);
+
+  // Ignore clicks outside the valid range
+  if (si < nfMinString || si > nfMaxString || fret < nfMinFret || fret > nfMaxFret) {
+    const fb = document.getElementById('nf-feedback');
+    fb.textContent = 'Click within the highlighted area';
+    fb.className   = 'feedback-hint';
+    return;
+  }
+
+  const note = (OPEN_NOTES[si] + fret) % 12;
+  const fb   = document.getElementById('nf-feedback');
+
+  if (note === nfChallenge.note) {
+    nfLocked       = true;
+    fb.textContent = '✓ Correct!';
+    fb.className   = 'feedback-correct';
+    drawNFOverlay('correct');
+    setTimeout(newNFChallenge, 1000);
+  } else {
+    fb.textContent = '✗ Try again';
+    fb.className   = 'feedback-wrong';
+    drawNFOverlay('wrong', si, fret);
+    setTimeout(() => { if (!nfLocked) drawNFOverlay('idle'); }, 600);
+  }
+}
+
+function setupNoteFinder() {
+  const selIds = ['nf-min-fret', 'nf-max-fret', 'nf-min-string', 'nf-max-string'];
+  const [minFretSel, maxFretSel, minStringSel, maxStringSel] = selIds.map(id => document.getElementById(id));
+
+  for (let f = 0; f <= FRET_COUNT; f++) {
+    [minFretSel, maxFretSel].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f === 0 ? '0 (open)' : String(f);
+      sel.appendChild(opt);
+    });
+  }
+  minFretSel.value = 0;
+  maxFretSel.value = FRET_COUNT;
+
+  STRINGS.forEach((name, i) => {
+    [minStringSel, maxStringSel].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${i + 1} – ${name}`;
+      sel.appendChild(opt);
+    });
+  });
+  minStringSel.value = 0;
+  maxStringSel.value = STRINGS.length - 1;
+
+  minFretSel.addEventListener('change',   e => { nfMinFret   = +e.target.value; if (nfMinFret > nfMaxFret)   { nfMaxFret   = nfMinFret;   maxFretSel.value   = nfMaxFret;   } drawNFOverlay('idle'); });
+  maxFretSel.addEventListener('change',   e => { nfMaxFret   = +e.target.value; if (nfMaxFret < nfMinFret)   { nfMinFret   = nfMaxFret;   minFretSel.value   = nfMinFret;   } drawNFOverlay('idle'); });
+  minStringSel.addEventListener('change', e => { nfMinString = +e.target.value; if (nfMinString > nfMaxString) { nfMaxString = nfMinString; maxStringSel.value = nfMaxString; } drawNFOverlay('idle'); });
+  maxStringSel.addEventListener('change', e => { nfMaxString = +e.target.value; if (nfMaxString < nfMinString) { nfMinString = nfMaxString; minStringSel.value = nfMinString; } drawNFOverlay('idle'); });
+
+  // Click and touch handlers on the SVG
+  const svg = document.getElementById('fretboard');
+  svg.addEventListener('click',     handleFretboardClick);
+  svg.addEventListener('touchend',  handleFretboardClick, { passive: false });
+}
+
 // --- Control setup ---
 function populateRootSelect() {
   const sel = document.getElementById('root-select');
@@ -469,15 +656,18 @@ function setupNoteNamerFilters() {
 function setupModeSelector() {
   document.getElementById('mode-select').addEventListener('change', e => {
     appMode = e.target.value;
-    const isVisualiser = appMode === 'visualiser';
-    document.getElementById('visualiser-controls').hidden = !isVisualiser;
-    document.getElementById('note-namer-controls').hidden =  isVisualiser;
+    document.getElementById('visualiser-controls').hidden  = appMode !== 'visualiser';
+    document.getElementById('note-namer-controls').hidden  = appMode !== 'note-namer';
+    document.getElementById('note-finder-controls').hidden = appMode !== 'note-finder';
+    document.getElementById('fretboard').classList.toggle('note-finder-active', appMode === 'note-finder');
 
-    if (isVisualiser) {
+    if (appMode === 'visualiser') {
       drawFretboard();
       drawNotes();
-    } else {
+    } else if (appMode === 'note-namer') {
       newChallenge();
+    } else {
+      newNFChallenge();
     }
   });
 }
@@ -492,6 +682,7 @@ populateRootSelect();
 populateTypeSelect();
 setupControls();
 setupNoteNamerFilters();
+setupNoteFinder();
 setupModeSelector();
 drawFretboard();
 drawNotes();

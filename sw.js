@@ -1,4 +1,4 @@
-const CACHE = 'fretboard-v2';
+const CACHE = 'fretboard-v3';
 const ASSETS = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
