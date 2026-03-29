@@ -496,7 +496,8 @@ function newNFChallenge() {
       available.add((OPEN_NOTES[si] + f) % 12);
     }
   }
-  const pool = [...available];
+  const lastNote = nfChallenge?.note ?? -1;
+  const pool = [...available].filter(n => n !== lastNote || available.size === 1);
   const note = pool[Math.floor(Math.random() * pool.length)];
   const display = ACCIDENTALS.has(note)
     ? (Math.random() < 0.5 ? NOTE_NAMES[note] : NOTE_NAMES_FLAT[note])
