@@ -95,7 +95,7 @@ function svgText(content, attrs = {}) {
 // --- Layout constants ---
 const PAD_LEFT       = 50;
 const PAD_RIGHT      = 46;
-const PAD_TOP        = 20;
+const PAD_TOP        = 70;
 const PAD_BOTTOM     = 40;
 const STRING_SPACING = 46;
 const FRET_OVERHANG  = 12; // fretboard extends this many px beyond the outer strings
@@ -465,6 +465,22 @@ function drawNFOverlay(state = 'idle', wrongSi, wrongFret) {
     }));
   }
 
+  // Note name centered above the fretboard wood
+  if (nfChallenge) {
+    const label = state === 'correct' ? NOTE_NAMES[nfChallenge.note] : NOTE_NAMES[nfChallenge.note];
+    g.appendChild(svgText(label, {
+      x: PAD_LEFT + boardWidth / 2,
+      y: (PAD_TOP - FRET_OVERHANG) / 2,
+      'text-anchor': 'middle',
+      'dominant-baseline': 'middle',
+      'font-size': '52',
+      'font-family': "'Menlo', 'Monaco', monospace",
+      'font-weight': 'bold',
+      fill: state === 'correct' ? '#4caf50' : '#e2a95b',
+      'pointer-events': 'none',
+    }));
+  }
+
   svg.appendChild(g);
 }
 
@@ -480,7 +496,6 @@ function newNFChallenge() {
   }
   const pool = [...available];
   nfChallenge = { note: pool[Math.floor(Math.random() * pool.length)] };
-  document.getElementById('nf-note-display').textContent = NOTE_NAMES[nfChallenge.note];
   document.getElementById('nf-feedback').textContent     = '';
   document.getElementById('nf-feedback').className       = '';
   drawFretboard();
