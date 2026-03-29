@@ -98,19 +98,29 @@ const PAD_RIGHT      = 46;
 const PAD_TOP        = 20;
 const PAD_BOTTOM     = 40;
 const STRING_SPACING = 46;
-const FRET_SPACING   = 80;
 const FRET_OVERHANG  = 12; // fretboard extends this many px beyond the outer strings
 
-const boardWidth  = FRET_COUNT * FRET_SPACING;
+// Equal-temperament fret spacing: distance from nut to fret n is
+// scaleLength * (1 - 2^(-n/12)). We normalise so fret FRET_COUNT sits at
+// the left edge of boardWidth.
+const boardWidth  = 1100;
+const SCALE_NORM  = 1 - Math.pow(2, -FRET_COUNT / 12); // 0.5 for 12 frets
+
 const boardHeight = (STRINGS.length - 1) * STRING_SPACING;
 const totalWidth  = PAD_LEFT + boardWidth + PAD_RIGHT;
 const totalHeight = PAD_TOP + boardHeight + PAD_BOTTOM;
 
-// Left-handed: fret 0 (nut) on the right; fret numbers increase leftward.
-const fretX = f => PAD_LEFT + (FRET_COUNT - f) * FRET_SPACING;
+// Left-handed: nut (fret 0) on the right.
+// fretX(f) = x position of fret wire f.
+const fretX = f =>
+  PAD_LEFT + boardWidth * (1 - (1 - Math.pow(2, -f / 12)) / SCALE_NORM);
+
+// Centre of the playing space for fret f (between wires f and f-1).
+// Fret 0 (open) sits in the PAD_RIGHT area to the right of the nut.
 const noteX = f => f === 0
   ? PAD_LEFT + boardWidth + PAD_RIGHT / 2
-  : PAD_LEFT + (FRET_COUNT - f + 0.5) * FRET_SPACING;
+  : (fretX(f) + fretX(f - 1)) / 2;
+
 const noteY = si => PAD_TOP + si * STRING_SPACING;
 
 // --- Static fretboard ---
@@ -144,14 +154,14 @@ function drawFretboard() {
   // Single-dot position markers
   FRET_MARKERS.forEach(fret => {
     svg.appendChild(el('circle', {
-      cx: PAD_LEFT + (FRET_COUNT - fret + 0.5) * FRET_SPACING,
+      cx: (fretX(fret) + fretX(fret - 1)) / 2,
       cy: PAD_TOP + boardHeight / 2,
       r: 6, fill: 'rgba(255,255,255,0.18)',
     }));
   });
 
   // Double dot at fret 12
-  const dot12x = PAD_LEFT + (FRET_COUNT - 12 + 0.5) * FRET_SPACING;
+  const dot12x = (fretX(12) + fretX(11)) / 2;
   [boardHeight / 3, (boardHeight * 2) / 3].forEach(cy => {
     svg.appendChild(el('circle', {
       cx: dot12x, cy: PAD_TOP + cy, r: 6, fill: 'rgba(255,255,255,0.18)',
@@ -164,13 +174,13 @@ function drawFretboard() {
     const isNut = f === 0;
     svg.appendChild(el('line', {
       x1: x, y1: PAD_TOP - FRET_OVERHANG, x2: x, y2: PAD_TOP + boardHeight + FRET_OVERHANG,
-      stroke: isNut ? '#d4af37' : '#c0c0c0',
-      'stroke-width': isNut ? 6 : 2,
+      stroke: isNut ? '#f0ead6' : '#b0b0b0',
+      'stroke-width': isNut ? 7 : 2,
       'stroke-linecap': 'round',
     }));
     if (f > 0) {
       svg.appendChild(svgText(String(f), {
-        x: PAD_LEFT + (FRET_COUNT - f + 0.5) * FRET_SPACING,
+        x: (fretX(f) + fretX(f - 1)) / 2,
         y: PAD_TOP + boardHeight + FRET_OVERHANG + 16,
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
         'font-size': '12', 'font-family': 'monospace', fill: '#888',
@@ -190,7 +200,7 @@ function drawFretboard() {
     const y = noteY(i);
     svg.appendChild(el('line', {
       x1: PAD_LEFT, y1: y, x2: PAD_LEFT + boardWidth, y2: y,
-      stroke: i >= 3 ? '#b8a070' : '#d0d0d0',
+      stroke: i >= 3 ? '#7a8290' : '#b8c0ca',
       'stroke-width': 1 + i * 0.55,
     }));
     svg.appendChild(svgText(name, {
@@ -370,8 +380,11 @@ function svgCoordsFromEvent(e) {
 
 function fretFromX(x) {
   if (x > PAD_LEFT + boardWidth) return 0; // open area (right of nut)
-  const col = (x - PAD_LEFT) / FRET_SPACING;
-  return Math.max(1, Math.min(FRET_COUNT, FRET_COUNT - Math.floor(col)));
+  // fretX decreases as f increases; find the first f where x >= fretX(f)
+  for (let f = 1; f <= FRET_COUNT; f++) {
+    if (x >= fretX(f)) return f;
+  }
+  return FRET_COUNT;
 }
 
 function stringFromY(y) {
@@ -397,7 +410,7 @@ function drawNFOverlay(state = 'idle', wrongSi, wrongFret) {
 
   if (isRestricted) {
     // x bounds of the valid fret playing space
-    const vx1 = nfMaxFret === FRET_COUNT ? boardLeft : fretX(nfMaxFret);
+    const vx1 = fretX(nfMaxFret);
     const vx2 = nfMinFret === 0          ? boardRight : fretX(nfMinFret - 1);
 
     // y bounds of the valid string band
