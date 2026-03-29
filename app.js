@@ -7,7 +7,9 @@ const FRET_COUNT   = 12;
 const FRET_MARKERS = [3, 5, 7, 9]; // single dots; 12 gets a double dot (handled separately)
 
 // --- Music theory ---
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_NAMES      = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const ACCIDENTALS     = new Set([1, 3, 6, 8, 10]); // notes with both a sharp and flat spelling
 
 // Maps any common note spelling (uppercase) to a chromatic index 0–11
 const NOTE_PARSE_MAP = {
@@ -444,7 +446,7 @@ function drawNFOverlay(state = 'idle', wrongSi, wrongFret) {
           cx: noteX(f), cy: noteY(si), r: 12,
           fill: '#4caf50', stroke: '#2e7d32', 'stroke-width': 1.5,
         }));
-        g.appendChild(svgText(NOTE_NAMES[nfChallenge.note], {
+        g.appendChild(svgText(nfChallenge.display, {
           x: noteX(f), y: noteY(si),
           'text-anchor': 'middle', 'dominant-baseline': 'middle',
           'font-size': '9', 'font-family': 'monospace', 'font-weight': 'bold',
@@ -467,7 +469,7 @@ function drawNFOverlay(state = 'idle', wrongSi, wrongFret) {
 
   // Note name centered above the fretboard wood
   if (nfChallenge) {
-    const label = state === 'correct' ? NOTE_NAMES[nfChallenge.note] : NOTE_NAMES[nfChallenge.note];
+    const label = nfChallenge.display;
     g.appendChild(svgText(label, {
       x: PAD_LEFT + boardWidth / 2,
       y: (PAD_TOP - FRET_OVERHANG) / 2,
@@ -495,7 +497,11 @@ function newNFChallenge() {
     }
   }
   const pool = [...available];
-  nfChallenge = { note: pool[Math.floor(Math.random() * pool.length)] };
+  const note = pool[Math.floor(Math.random() * pool.length)];
+  const display = ACCIDENTALS.has(note)
+    ? (Math.random() < 0.5 ? NOTE_NAMES[note] : NOTE_NAMES_FLAT[note])
+    : NOTE_NAMES[note];
+  nfChallenge = { note, display };
   document.getElementById('nf-feedback').textContent     = '';
   document.getElementById('nf-feedback').className       = '';
   drawFretboard();
