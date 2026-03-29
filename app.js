@@ -509,15 +509,14 @@ function newNFChallenge() {
   drawNFOverlay('idle');
 }
 
-function handleFretboardClick(e) {
-  if (appMode !== 'note-finder' || nfLocked || !nfChallenge) return;
+function handleNFClick(e) {
+  if (nfLocked || !nfChallenge) return;
   e.preventDefault();
 
   const { x, y } = svgCoordsFromEvent(e);
   const si   = stringFromY(y);
   const fret = fretFromX(x);
 
-  // Ignore clicks outside the valid range
   if (si < nfMinString || si > nfMaxString || fret < nfMinFret || fret > nfMaxFret) {
     const fb = document.getElementById('nf-feedback');
     fb.textContent = 'Click within the highlighted area';
@@ -540,6 +539,45 @@ function handleFretboardClick(e) {
     drawNFOverlay('wrong', si, fret);
     setTimeout(() => { if (!nfLocked) drawNFOverlay('idle'); }, 600);
   }
+}
+
+function handleSFClick(e) {
+  if (sfLocked || !sfSequence.length) return;
+  e.preventDefault();
+
+  const { x, y } = svgCoordsFromEvent(e);
+  const si   = stringFromY(y);
+  const fret = fretFromX(x);
+
+  const note       = (OPEN_NOTES[si] + fret) % 12;
+  const targetNote = sfSequence[sfProgress];
+  const fb         = document.getElementById('sf-feedback');
+
+  if (note === targetNote) {
+    sfMarked.push({ si, fret });
+    sfProgress++;
+    fb.textContent = '';
+    fb.className   = '';
+    if (sfProgress >= sfSequence.length) {
+      sfLocked       = true;
+      fb.textContent = '✓ Complete!';
+      fb.className   = 'feedback-correct';
+      drawSFOverlay();
+      setTimeout(newSFChallenge, 800);
+    } else {
+      drawSFOverlay();
+    }
+  } else {
+    fb.textContent = '✗ Try again';
+    fb.className   = 'feedback-wrong';
+    drawSFOverlay('wrong', si, fret);
+    setTimeout(() => { if (!sfLocked) drawSFOverlay(); }, 600);
+  }
+}
+
+function handleFretboardClick(e) {
+  if (appMode === 'note-finder')  handleNFClick(e);
+  else if (appMode === 'scale-finder') handleSFClick(e);
 }
 
 function setupNoteFinder() {
@@ -696,22 +734,132 @@ function setupNoteNamerFilters() {
   });
 }
 
+// --- Scale Finder ---
+let sfRoot      = 0;
+let sfTypeIndex = 0;
+let sfDirection = 'ascending';
+let sfProgress  = 0;        // index into sfSequence
+let sfSequence  = [];       // ordered chromatic note indices to find
+let sfMarked    = [];       // { si, fret } of correctly tapped positions
+let sfLocked    = false;
+
+function buildSFSequence() {
+  const notes = SCALES[sfTypeIndex].intervals.map(i => (sfRoot + i) % 12);
+  return sfDirection === 'ascending' ? notes : [...notes].reverse();
+}
+
+function drawSFOverlay(state = 'idle', wrongSi, wrongFret) {
+  const old = document.getElementById('sf-overlay');
+  if (old) old.remove();
+
+  const svg = document.getElementById('fretboard');
+  const g   = el('g', { id: 'sf-overlay' });
+
+  // Accumulated correct markers
+  sfMarked.forEach(({ si, fret }) => {
+    const note = (OPEN_NOTES[si] + fret) % 12;
+    const cx = noteX(fret), cy = noteY(si);
+    g.appendChild(el('circle', { cx, cy, r: 12, fill: '#4caf50', stroke: '#2e7d32', 'stroke-width': 1.5 }));
+    g.appendChild(svgText(NOTE_NAMES[note], {
+      x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': '9', 'font-family': 'monospace', 'font-weight': 'bold',
+      fill: '#fff', 'pointer-events': 'none',
+    }));
+  });
+
+  // Wrong flash
+  if (state === 'wrong') {
+    const cx = noteX(wrongFret), cy = noteY(wrongSi);
+    g.appendChild(el('circle', { cx, cy, r: 12, fill: '#ef5350', stroke: '#b71c1c', 'stroke-width': 1.5 }));
+    g.appendChild(svgText('✗', {
+      x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': '12', 'font-family': 'monospace', 'font-weight': 'bold',
+      fill: '#fff', 'pointer-events': 'none',
+    }));
+  }
+
+  // Text above the fretboard
+  const midY     = (PAD_TOP - FRET_OVERHANG) / 2; // vertical centre of the header space
+  const dirArrow = sfDirection === 'ascending' ? '↑' : '↓';
+
+  if (sfProgress < sfSequence.length) {
+    // Current target note — large and centred
+    g.appendChild(svgText(NOTE_NAMES[sfSequence[sfProgress]], {
+      x: PAD_LEFT + boardWidth / 2, y: midY - 10,
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': '42', 'font-family': "'Menlo', 'Monaco', monospace",
+      'font-weight': 'bold', fill: '#e2a95b', 'pointer-events': 'none',
+    }));
+    // Progress counter + direction arrow
+    g.appendChild(svgText(`${sfProgress + 1} / ${sfSequence.length}  ${dirArrow}`, {
+      x: PAD_LEFT + boardWidth / 2, y: midY + 20,
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': '13', 'font-family': 'monospace',
+      fill: '#667', 'pointer-events': 'none',
+    }));
+  } else {
+    // All notes found
+    g.appendChild(svgText('Complete!', {
+      x: PAD_LEFT + boardWidth / 2, y: midY,
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': '36', 'font-family': "'Menlo', 'Monaco', monospace",
+      'font-weight': 'bold', fill: '#4caf50', 'pointer-events': 'none',
+    }));
+  }
+
+  svg.appendChild(g);
+}
+
+function newSFChallenge() {
+  sfLocked   = false;
+  sfProgress = 0;
+  sfMarked   = [];
+  sfSequence = buildSFSequence();
+  document.getElementById('sf-feedback').textContent = '';
+  document.getElementById('sf-feedback').className   = '';
+  drawFretboard();
+  drawSFOverlay();
+}
+
+function setupScaleFinder() {
+  const rootSel = document.getElementById('sf-root-select');
+  const typeSel = document.getElementById('sf-type-select');
+
+  NOTE_NAMES.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = name;
+    rootSel.appendChild(opt);
+  });
+
+  SCALES.forEach((s, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = s.name;
+    typeSel.appendChild(opt);
+  });
+
+  rootSel.addEventListener('change', e => { sfRoot      = +e.target.value; newSFChallenge(); });
+  typeSel.addEventListener('change', e => { sfTypeIndex = +e.target.value; newSFChallenge(); });
+  document.getElementById('sf-direction-select').addEventListener('change', e => {
+    sfDirection = e.target.value;
+    newSFChallenge();
+  });
+}
+
 function setupModeSelector() {
   document.getElementById('mode-select').addEventListener('change', e => {
     appMode = e.target.value;
     document.getElementById('visualiser-controls').hidden  = appMode !== 'visualiser';
     document.getElementById('note-namer-controls').hidden  = appMode !== 'note-namer';
-    document.getElementById('note-finder-controls').hidden = appMode !== 'note-finder';
-    document.getElementById('fretboard').classList.toggle('note-finder-active', appMode === 'note-finder');
+    document.getElementById('note-finder-controls').hidden  = appMode !== 'note-finder';
+    document.getElementById('scale-finder-controls').hidden = appMode !== 'scale-finder';
+    document.getElementById('fretboard').classList.toggle(
+      'note-finder-active', appMode === 'note-finder' || appMode === 'scale-finder'
+    );
 
-    if (appMode === 'visualiser') {
-      drawFretboard();
-      drawNotes();
-    } else if (appMode === 'note-namer') {
-      newChallenge();
-    } else {
-      newNFChallenge();
-    }
+    if (appMode === 'visualiser')      { drawFretboard(); drawNotes(); }
+    else if (appMode === 'note-namer') { newChallenge(); }
+    else if (appMode === 'note-finder'){ newNFChallenge(); }
+    else                               { newSFChallenge(); }
   });
 }
 
@@ -726,6 +874,7 @@ populateTypeSelect();
 setupControls();
 setupNoteNamerFilters();
 setupNoteFinder();
+setupScaleFinder();
 setupModeSelector();
 drawFretboard();
 drawNotes();

@@ -18,6 +18,7 @@
         <option value="visualiser">Visualiser</option>
         <option value="note-namer">Note Namer</option>
         <option value="note-finder">Note Finder</option>
+        <option value="scale-finder">Scale Finder</option>
       </select>
     </header>
 
@@ -89,6 +90,28 @@
         </div>
       </div>
       <div id="nf-feedback"></div>
+    </div>
+
+    <!-- Scale Finder controls -->
+    <div id="scale-finder-controls" hidden>
+      <div class="select-group">
+        <div class="select-wrapper">
+          <label for="sf-root-select">Root</label>
+          <select id="sf-root-select"></select>
+        </div>
+        <div class="select-wrapper">
+          <label for="sf-type-select">Scale</label>
+          <select id="sf-type-select"></select>
+        </div>
+        <div class="select-wrapper">
+          <label for="sf-direction-select">Direction</label>
+          <select id="sf-direction-select">
+            <option value="ascending">Ascending ↑</option>
+            <option value="descending">Descending ↓</option>
+          </select>
+        </div>
+      </div>
+      <div id="sf-feedback"></div>
     </div>
 
     <main>
