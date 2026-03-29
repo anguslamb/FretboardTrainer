@@ -709,7 +709,8 @@ const afState = { root: 0, typeIndex: 0, direction: 'ascending', progress: 0, se
 
 function buildSeqSequence(st) {
   const notes = st.collection[st.typeIndex].intervals.map(i => (st.root + i) % 12);
-  return st.direction === 'ascending' ? notes : [...notes].reverse();
+  if (st.direction === 'ascending') return [...notes, notes[0]];
+  return [notes[0], ...[...notes].reverse()];
 }
 
 function drawSeqOverlay(st, state = 'idle', wrongSi, wrongFret) {
